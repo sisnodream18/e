@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-title" content="Essential">
+  <link rel="icon" type="image/png" href="./essential.png">
+  <link rel="apple-touch-icon" href="./essential.png">
+  <title>Essential</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Used only when the browser can decode the recorded audio and the user taps Download MP3. -->
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+</head>
+<body>
+  <div id="app" class="app-viewport">
+    <div id="toast" class="toast-container hidden" role="alert" aria-live="polite"></div>
+    <div id="connectionBanner" class="connection-banner hidden">Reconnecting to secure channel…</div>
+
+    <section id="loginScreen" class="screen active">
+      <div class="login-orb orb-one"></div>
+      <div class="login-orb orb-two"></div>
+      <div class="login-card glass-panel">
+        <div class="login-brand-wrap">
+          <div class="brand-mark"><img src="./essential.png" alt="Essential"></div>
+          <div>
+            <h1 class="brand-title">Essential</h1>
+            <p class="brand-subtitle">A quiet place for two.</p>
+          </div>
+        </div>
+
+        <div id="identityStep" class="login-step">
+          <div class="step-heading"><span>01</span><div><strong>Choose identity</strong><small>Select who is entering</small></div></div>
+          <div class="identity-grid">
+            <button id="identityCardFirst" class="identity-card" type="button" aria-label="Select first identity">
+              <span class="identity-ring"><img id="pfpFirstCard" class="pfp-card" src="" alt="First identity"></span>
+              <span id="nameFirstCard" class="identity-name">---</span>
+              <span class="identity-hint">Enter as this identity</span>
+            </button>
+            <button id="identityCardSecond" class="identity-card" type="button" aria-label="Select second identity">
+              <span class="identity-ring"><img id="pfpSecondCard" class="pfp-card" src="" alt="Second identity"></span>
+              <span id="nameSecondCard" class="identity-name">---</span>
+              <span class="identity-hint">Enter as this identity</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="passwordStep" class="login-step hidden">
+          <button id="btnBackToIdentities" class="btn-back" type="button" aria-label="Back to identity selection">← <span>Back</span></button>
+          <div class="selected-identity-preview">
+            <div class="pfp-password-ring"><img id="passwordAvatar" class="pfp-password" src="" alt="Selected avatar"></div>
+            <h2 id="passwordIdentityName" class="selected-name">---</h2>
+            <span class="selected-caption">Protected entry</span>
+          </div>
+          <form id="passwordForm" class="password-form" onsubmit="return false;">
+            <label class="field-label" for="passwordInput">Password</label>
+            <div class="input-password-wrapper">
+              <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="current-password" required>
+              <button id="btnTogglePassword" type="button" class="btn-icon-inline" aria-label="Toggle password visibility">◉</button>
+            </div>
+            <div id="passwordError" class="auth-error hidden" role="alert">Incorrect password. Please try again.</div>
+            <button id="btnLoginSubmit" type="submit" class="btn-aqua-submit"><span>Enter Space</span><span class="submit-arrow">→</span></button>
+          </form>
+        </div>
+      </div>
+      <div class="login-footnote">End-to-end style private room • 2 identities</div>
+    </section>
+
+    <section id="chatScreen" class="screen hidden">
+      <header class="chat-header">
+        <div id="selectionToolbar" class="selection-toolbar hidden">
+          <button id="btnCancelSelection" class="btn-icon" aria-label="Cancel selection">×</button>
+          <span id="selectionTitle" class="selection-title">1 Selected</span>
+          <div class="selection-actions">
+            <button id="btnReplySelected" class="btn-icon" aria-label="Reply">↩</button>
+            <button id="btnCopySelected" class="btn-icon" aria-label="Copy">⧉</button>
+            <button id="btnInfoSelected" class="btn-icon" aria-label="Message info" title="Message info">ⓘ</button>
+            <button id="btnPinSelected" class="btn-icon" aria-label="Pin message" title="Pin message">⌖</button>
+            <button id="btnEditSelected" class="btn-icon hidden" aria-label="Edit">✎</button>
+            <button id="btnDeleteSelected" class="btn-icon danger-icon" aria-label="Delete">⌫</button>
+          </div>
+        </div>
+
+        <div id="normalHeader" class="header-normal">
+          <div class="user-meta">
+            <div class="avatar-status-wrap">
+              <img id="counterpartPfp" class="pfp-toolbar" src="" alt="Counterpart avatar">
+              <span id="counterpartStatusDot" class="status-dot offline"></span>
+            </div>
+            <div class="user-text">
+              <h2 id="counterpartName" class="counterpart-name">---</h2>
+              <span id="counterpartStatus" class="counterpart-status">Offline</span>
+              <span id="counterpartTypingIndicator" class="activity-indicator typing-indicator hidden" aria-live="polite"><span class="typing-dots"><i></i><i></i><i></i></span> <span>typing…</span></span>
+              <span id="counterpartRecordingIndicator" class="activity-indicator recording-indicator-text hidden" aria-live="polite">Recording voice…</span>
+            </div>
+          </div>
+          <div class="inner-app-brand" aria-label="Essential"><img src="./essential.png" alt="Essential"><span>Essential</span></div>
+          <button id="btnThreeDots" class="btn-icon" aria-label="Open menu">⋮</button>
+        </div>
+
+        <div id="threeDotsMenu" class="dropdown-menu hidden">
+          <button id="btnOpenMediaGallery" class="menu-item" type="button">▧ <span>Media Gallery</span></button>
+          <button id="btnOpenPinnedGallery" class="menu-item" type="button"><span class="pin-menu-icon">📌</span><span>Pinned Messages</span></button>
+          <button id="btnOpenArtGallery" class="menu-item" type="button">✎ <span>Art Gallery</span></button>
+          <button id="btnOpenScheduledGallery" class="menu-item" type="button">◷ <span>Scheduled Messages</span></button>
+          <button id="btnOpenVoiceGallery" class="menu-item" type="button">◖ <span>Voice Gallery</span></button>
+          <button id="btnClearHistory" class="menu-item menu-danger hidden" type="button">⌫ <span>Delete by time…</span></button>
+        </div>
+      </header>
+
+      <main id="chatMessages" class="chat-messages-container" aria-label="Message stream">
+        <div id="messagesLoading" class="loading-spinner-container">
+          <div class="spinner"></div>
+          <span>Loading secure messages…</span>
+        </div>
+        <div id="emptyChatState" class="empty-state hidden">
+          <div class="empty-icon">✦</div>
+          <p>No messages yet</p>
+          <span>Send a message or media file to start the conversation.</span>
+        </div>
+        <div id="messagesList" class="messages-list"></div>
+      </main>
+      <div id="chatFloatingControls" class="chat-floating-controls" aria-live="polite">
+        <button id="btnJumpToLatest" class="jump-to-latest hidden" type="button" aria-label="Scroll to bottom">↓</button>
+        <button id="btnNewMessageNotice" class="new-message-notice hidden" type="button" aria-label="Jump to new message"><span class="new-message-notice-icon">N</span><span class="new-message-notice-label">New message</span></button>
+        <div id="messageNoticeHost" class="message-notice-host"></div>
+      </div>
+
+      <div id="floatingReactionPicker" class="floating-reaction-picker hidden" aria-label="Quick reactions">
+        <button class="reaction-emoji-btn" data-emoji="❤️" type="button">❤️</button>
+        <button class="reaction-emoji-btn" data-emoji="😂" type="button">😂</button>
+        <button class="reaction-emoji-btn" data-emoji="👍" type="button">👍</button>
+        <button class="reaction-emoji-btn" data-emoji="😮" type="button">😮</button>
+        <button class="reaction-emoji-btn" data-emoji="😢" type="button">😢</button>
+        <button class="reaction-emoji-btn" data-emoji="🔥" type="button">🔥</button>
+        <button id="btnMoreReactions" class="reaction-more-btn" type="button" aria-label="More reactions" title="More reactions">+</button>
+      </div>
+
+      <footer class="chat-footer">
+        <div id="replyPreviewBanner" class="context-banner reply-banner hidden">
+          <div class="context-accent"></div><div class="context-content"><span id="replyTargetAuthor" class="context-title">Replying to…</span><p id="replyTargetText" class="context-text">---</p></div>
+          <button id="btnCancelReply" class="btn-icon-sm" aria-label="Cancel reply">×</button>
+        </div>
+        <div id="editPreviewBanner" class="context-banner edit-banner hidden">
+          <div class="context-accent"></div><div class="context-content"><span class="context-title">Editing message</span><p id="editTargetText" class="context-text">---</p></div>
+          <button id="btnCancelEdit" class="btn-icon-sm" aria-label="Cancel edit">×</button>
+        </div>
+
+        <section id="messageTypePanel" class="message-type-panel hidden" aria-label="Message type settings">
+          <div class="message-type-choice-row">
+            <button type="button" class="message-type-choice active" data-message-kind="normal"><span class="type-choice-mark">N</span><span>Normal</span></button>
+            <button type="button" class="message-type-choice" data-message-kind="poll"><span class="type-choice-mark">P</span><span>Poll</span></button>
+            <button type="button" class="message-type-choice" data-message-kind="countdown"><span class="type-choice-mark">C</span><span>Countdown / Count-up</span></button>
+          </div>
+          <div class="message-flags-row">
+            <label><input id="urgentToggle" type="checkbox"> <span>Urgent</span></label>
+            <label><input id="surpriseToggle" type="checkbox"> <span>Surprise</span></label>
+            <label><input id="scheduleToggle" type="checkbox"> <span>Schedule</span></label>
+          </div>
+          <div id="pollComposerFields" class="message-type-fields hidden">
+            <div class="type-fields-heading">Poll options</div>
+            <div id="pollOptionsInputList" class="poll-options-input-list">
+              <input class="poll-option-input" maxlength="100" placeholder="Option 1">
+              <input class="poll-option-input" maxlength="100" placeholder="Option 2">
+            </div>
+            <div class="poll-options-actions"><button id="btnAddPollOption" type="button" class="btn-subtle">+ Add option</button><label class="toggle-inline"><input id="pollAllowMultiple" type="checkbox"> Allow multiple choices</label></div>
+          </div>
+          <div id="countdownComposerFields" class="message-type-fields hidden">
+            <div class="type-fields-heading">Timer setup</div>
+            <div class="timer-config-row"><select id="countdownMode" aria-label="Timer mode"><option value="countdown">Countdown</option><option value="countup">Count-up</option></select><label class="toggle-inline"><input id="countdownInfinite" type="checkbox"> Infinity</label></div>
+            <div id="countdownDurationRow" class="countdown-duration-row">
+              <label class="type-field-label" for="countdownDurationValue">Countdown duration</label>
+              <div class="timer-duration-controls"><input id="countdownDurationValue" type="number" min="1" max="525600" step="1" value="10" inputmode="numeric"><select id="countdownDurationUnit" aria-label="Duration unit"><option value="seconds">Seconds</option><option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days">Days</option></select></div>
+            </div>
+            <label class="type-field-label" for="countdownTarget">Or choose a specific target date and time</label>
+            <input id="countdownTarget" type="datetime-local">
+          </div>
+          <div id="scheduleComposerFields" class="message-type-fields hidden">
+            <label class="type-field-label" for="scheduledForInput">Deliver on</label>
+            <input id="scheduledForInput" type="datetime-local">
+            <small>Only you can see this message until it is delivered.</small>
+          </div>
+        </section>
+        <div id="normalComposer" class="composer-bar">
+          <button id="btnAttachMedia" class="btn-icon-composer" type="button" aria-label="Add to chat" title="Add to chat">＋</button>
+          <button id="btnMessageType" class="btn-message-type" type="button" title="Message Type" aria-label="Message Type: Normal" aria-expanded="false">Normal <span aria-hidden="true">⌄</span></button>
+          <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple class="hidden">
+          <input type="file" id="documentFileInput" multiple class="hidden">
+          <input type="file" id="gifFileInput" accept="image/gif,.gif" multiple class="hidden">
+          <div class="text-input-wrapper"><textarea id="messageTextArea" rows="1" placeholder="Write a message…" maxlength="4000"></textarea></div>
+          <button id="btnMicRecord" class="btn-icon-composer mic-button" type="button" aria-label="Record voice">◉</button>
+          <button id="btnSendMessage" class="btn-send hidden" type="button" aria-label="Send message">➤</button>
+        </div>
+        <div id="uploadStatusPanel" class="upload-status-panel hidden" aria-live="polite">
+          <div class="upload-status-top"><strong id="uploadStatusTitle">Uploading…</strong><span id="uploadStatusPercent">0%</span></div>
+          <div class="upload-progress-track"><span id="uploadProgressFill"></span></div>
+          <div class="upload-status-bottom"><span id="uploadStatusElapsed">Elapsed 0:00</span><span id="uploadStatusRemaining">Estimating…</span></div>
+        </div>
+
+        <div id="recordingComposer" class="recording-bar hidden">
+          <div class="recording-left"><span class="recording-pulse-indicator"></span><span id="recordingTimer" class="recording-time">0:00</span><span class="recording-label">Recording</span></div>
+          <div class="recording-wave-mini" aria-hidden="true"></div>
+          <div class="recording-actions">
+            <button id="btnDiscardRecord" class="btn-icon-danger" type="button" aria-label="Discard recording">×</button>
+            <button id="btnPauseResumeRecord" class="btn-icon" type="button" aria-label="Pause or resume recording">Ⅱ</button>
+            <button id="btnSendRecord" class="btn-send-record" type="button" aria-label="Send recording">➤</button>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+
+    <div id="fileChooserOverlay" class="modal-overlay sheet-overlay hidden">
+      <section class="file-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="fileChooserTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <header class="sheet-header"><div><h2 id="fileChooserTitle">Add to chat</h2><p>Choose what you want to share</p></div><button id="btnCloseFileChooser" class="btn-icon" type="button" aria-label="Close">×</button></header>
+        <button id="btnChooseMedia" class="file-source-option" type="button"><span class="file-source-icon">▧</span><span><strong>Photos and videos</strong><small>Choose one or multiple media items</small></span><span class="file-source-arrow">›</span></button>
+        <button id="btnChooseGif" class="file-source-option" type="button"><span class="file-source-icon">GIF</span><span><strong>GIF</strong><small>Send an animated GIF</small></span><span class="file-source-arrow">›</span></button>
+        <button id="btnOpenArtEditor" class="file-source-option" type="button"><span class="file-source-icon">✎</span><span><strong>Art</strong><small>Draw something and send it</small></span><span class="file-source-arrow">›</span></button>
+        <button id="btnChooseDocuments" class="file-source-option" type="button"><span class="file-source-icon">▤</span><span><strong>Documents and other files</strong><small>PDF, documents, archives and more</small></span><span class="file-source-arrow">›</span></button>
+        <p class="file-picker-note">Your browser opens its secure device file picker after you choose a source. Websites cannot display or browse private device folders inside their own interface.</p>
+      </section>
+    </div>
+
+    <div id="mediaPreviewOverlay" class="modal-overlay hidden">
+      <div class="modal-container preview-modal">
+        <header class="modal-header"><button id="btnCancelMediaPreview" class="btn-icon" type="button" aria-label="Cancel">×</button><span class="modal-title">Send Media</span><div class="header-spacer"></div></header>
+        <main class="media-preview-body">
+          <div id="previewMediaWrapper" class="preview-stage"><img id="imagePreviewElement" class="preview-element hidden" alt="Image preview"><video id="videoPreviewElement" class="preview-element hidden" controls playsinline></video></div>
+          <div id="imageEditorBar" class="image-editor-bar hidden"><button id="btnRotateImage" class="btn-editor" type="button">↻ <span>Rotate</span></button></div>
+        </main>
+        <footer class="modal-footer preview-footer"><button id="btnAddMorePreview" class="btn-subtle" type="button">＋ Add more</button><button id="btnConfirmSendMedia" class="btn-aqua-submit" type="button"><span>Send Media</span><span>➤</span></button></footer>
+      </div>
+    </div>
+
+    <div id="fileUploadPreviewOverlay" class="modal-overlay hidden">
+      <div class="modal-container file-preview-modal">
+        <header class="modal-header"><button id="btnCancelFilePreview" class="btn-icon" type="button" aria-label="Cancel file upload">×</button><span class="modal-title">Send file</span><div class="header-spacer"></div></header>
+        <main class="file-preview-body">
+          <div id="filePreviewIcon" class="file-type-icon">FILE</div>
+          <div class="file-preview-name-wrap"><strong id="filePreviewName" class="file-preview-name">Selected file</strong><span id="filePreviewDetails" class="file-preview-details">Ready to upload</span></div>
+          <p class="file-preview-note">The file will be stored privately. The other person can download it from the chat.</p>
+        </main>
+        <footer class="modal-footer preview-footer file-preview-footer"><button id="btnConfirmSendFile" class="btn-aqua-submit" type="button"><span>Send file</span><span>➤</span></button></footer>
+      </div>
+    </div>
+
+
+    <div id="mediaGalleryOverlay" class="modal-overlay hidden"><div class="modal-container gallery-modal"><header class="modal-header"><button id="btnCloseMediaGallery" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Shared Media</span><div class="header-spacer"></div></header><main id="mediaGalleryGrid" class="gallery-grid-body"><p class="empty-state">No shared media yet</p></main></div></div>
+
+    <div id="voiceGalleryOverlay" class="modal-overlay hidden"><div class="modal-container gallery-modal"><header class="modal-header"><button id="btnCloseVoiceGallery" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Shared Voices</span><div class="header-spacer"></div></header><main id="voiceGalleryList" class="voice-gallery-list-body"><p class="empty-state">No voice messages yet</p></main></div></div>
+
+    <div id="pinnedGalleryOverlay" class="modal-overlay hidden"><div class="modal-container gallery-modal pinned-gallery-modal"><header class="modal-header"><button id="btnClosePinnedGallery" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Pinned Messages</span><div class="header-spacer"></div></header><main id="pinnedGalleryList" class="pinned-gallery-list"><p class="empty-state">No pinned messages yet</p></main></div></div>
+
+    <div id="artGalleryOverlay" class="modal-overlay hidden"><div class="modal-container gallery-modal"><header class="modal-header"><button id="btnCloseArtGallery" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Art Gallery</span><div class="header-spacer"></div></header><main id="artGalleryGrid" class="gallery-grid-body"><p class="empty-state">No artwork yet</p></main></div></div>
+
+    <div id="scheduledGalleryOverlay" class="modal-overlay hidden"><div class="modal-container gallery-modal scheduled-gallery-modal"><header class="modal-header"><button id="btnCloseScheduledGallery" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Scheduled Messages</span><div class="header-spacer"></div></header><main id="scheduledGalleryList" class="scheduled-gallery-list"><p class="empty-state">No scheduled messages</p></main></div></div>
+
+    <div id="scheduledEditOverlay" class="modal-overlay hidden"><div class="modal-container dialog-modal scheduled-edit-modal"><header class="modal-header"><span class="modal-title">Edit scheduled message</span><button id="btnCloseScheduledEdit" class="btn-icon" type="button" aria-label="Close">×</button></header><main class="dialog-body"><label class="type-field-label" for="scheduledEditContent">Message content</label><textarea id="scheduledEditContent" rows="4" maxlength="4000"></textarea><label class="type-field-label" for="scheduledEditFor">Delivery date and time</label><input id="scheduledEditFor" type="datetime-local"><div id="scheduledEditPollFields" class="scheduled-edit-extra hidden"><span class="type-field-label">Poll options</span><div id="scheduledEditPollOptions" class="poll-options-input-list"></div></div><div id="scheduledEditTimerFields" class="scheduled-edit-extra hidden"><label class="type-field-label" for="scheduledEditTimerTarget">Timer target date and time</label><input id="scheduledEditTimerTarget" type="datetime-local"></div><div class="scheduled-edit-flags"><label><input id="scheduledEditUrgent" type="checkbox"> Urgent</label><label><input id="scheduledEditSurprise" type="checkbox"> Surprise</label></div><div class="dialog-actions-vertical"><button id="btnSaveScheduledEdit" class="btn-aqua-submit" type="button">Save changes</button></div></main></div></div>
+
+    <div id="gifPickerOverlay" class="modal-overlay hidden"><section class="modal-container gif-picker-modal" role="dialog" aria-modal="true" aria-label="Choose GIF"><header class="modal-header"><button id="btnCloseGifPicker" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">GIFs</span><span class="giphy-attribution">Powered by GIPHY</span><button id="btnUploadGifFiles" class="btn-subtle gif-upload-button" type="button"><span aria-hidden="true">↑</span><span>Upload</span></button></header><div class="gif-search-wrap"><input id="gifSearchInput" type="search" placeholder="Search GIPHY" maxlength="50" autocomplete="off"><span id="gifSearchStatus" aria-live="polite">Trending · Powered by GIPHY</span></div><main id="gifResultsGrid" class="gif-results-grid"><p class="empty-state">Open GIFs to explore trending animations</p></main><footer class="gif-picker-footer"><span id="gifSelectionCount">0 selected</span><button id="btnSendSelectedGifs" class="btn-aqua-submit" type="button" disabled>Send selected GIFs</button></footer></section></div>
+
+    <div id="artEditorOverlay" class="modal-overlay hidden"><section class="modal-container art-editor-modal" role="dialog" aria-modal="true" aria-label="Create art"><header class="modal-header"><button id="btnCloseArtEditor" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Create Art</span><button id="btnClearArt" class="btn-editor" type="button">Clear</button></header><div class="art-toolbar"><div class="art-tool-row"><button class="art-tool active" data-tool="pen" type="button">Pen</button><button class="art-tool" data-tool="marker" type="button">Marker</button><button class="art-tool" data-tool="highlighter" type="button">Highlight</button><button class="art-tool" data-tool="glow" type="button">Glow</button><button class="art-tool" data-tool="eraser" type="button">Eraser</button></div><div class="art-setting-row"><label>Color <input id="artColor" type="color" value="#ffffff"></label><label>Background <input id="artBackground" type="color" value="#0b1930"></label><label>Size <input id="artSize" type="range" min="1" max="48" value="6"></label><span id="artSizeValue">6 px</span></div><div class="art-palette" id="artPalette"><button data-color="#ffffff" style="--swatch:#ffffff" aria-label="White" type="button"></button><button data-color="#60a5fa" style="--swatch:#60a5fa" aria-label="Blue" type="button"></button><button data-color="#22d3ee" style="--swatch:#22d3ee" aria-label="Cyan" type="button"></button><button data-color="#f472b6" style="--swatch:#f472b6" aria-label="Pink" type="button"></button><button data-color="#fbbf24" style="--swatch:#fbbf24" aria-label="Yellow" type="button"></button><button data-color="#34d399" style="--swatch:#34d399" aria-label="Green" type="button"></button><button data-color="#fb7185" style="--swatch:#fb7185" aria-label="Red" type="button"></button><button data-color="#a78bfa" style="--swatch:#a78bfa" aria-label="Purple" type="button"></button></div></div><div class="art-canvas-wrap"><canvas id="artCanvas" width="768" height="1024" aria-label="Drawing canvas"></canvas></div><footer class="art-footer"><button id="btnUndoArt" class="btn-editor" type="button">↶ Undo</button><button id="btnSendArt" class="btn-aqua-submit" type="button">Send Art ➤</button></footer></section></div>
+
+    <div id="messageInfoModal" class="modal-overlay hidden"><div class="modal-container dialog-modal message-info-modal"><header class="modal-header"><span class="modal-title">Message info</span><button id="btnCloseMessageInfo" class="btn-icon" type="button" aria-label="Close">×</button></header><main id="messageInfoContent" class="dialog-body message-info-body"></main><footer class="message-info-footer"><button id="btnCopyMessageInfo" class="btn-aqua-submit" type="button">Copy info</button></footer></div></div>
+
+    <div id="reactionDetailsModal" class="modal-overlay hidden"><div class="modal-container dialog-modal"><header class="modal-header"><span class="modal-title">Reactions</span><button id="btnCloseReactionDetails" class="btn-icon" type="button" aria-label="Close">×</button></header><main id="reactionDetailsList" class="dialog-body"></main></div></div>
+
+    <div id="allReactionsModal" class="modal-overlay hidden"><div class="modal-container emoji-picker-modal"><header class="modal-header"><button id="btnCloseAllReactions" class="btn-icon" type="button" aria-label="Close">×</button><span class="modal-title">Choose a reaction</span><div class="header-spacer"></div></header><main class="emoji-picker-body"><emoji-picker id="allEmojiPicker" class="full-emoji-picker"></emoji-picker></main></div></div>
+
+    <div id="deleteChoicesModal" class="modal-overlay hidden"><div class="modal-container dialog-modal"><header class="modal-header"><span class="modal-title">Delete Message</span><button id="btnCancelDeleteDialog" class="btn-icon" type="button" aria-label="Close">×</button></header><main class="dialog-body"><p class="dialog-text">Choose how you want to remove this message.</p><div class="dialog-actions-vertical"><button id="btnDeleteForMe" class="btn-dialog-option" type="button">Delete for me</button><button id="btnDeleteForEveryone" class="btn-dialog-option btn-dialog-danger" type="button">Delete for everyone</button></div></main></div></div>
+
+    <div id="clearHistoryModal" class="modal-overlay hidden"><div class="modal-container dialog-modal clear-range-modal"><header class="modal-header"><span class="modal-title">Delete messages by time</span><button id="btnCancelClearHistory" class="btn-icon" type="button" aria-label="Close">×</button></header><main class="dialog-body"><p class="dialog-text">This permanently deletes matching unpinned messages from both people, including photos, GIFs, videos, voice notes and files. Pinned messages and their files are kept until unpinned. Only the Shadow/Thyme account can use this control.</p><label class="field-label range-field-label" for="clearRangeMode">Time range</label><select id="clearRangeMode" class="range-select"><option value="all">All time</option><option value="last" selected>Last…</option><option value="except_last">Everything except last…</option></select><div id="clearRangeAmountWrap" class="range-amount-row"><input id="clearRangeAmount" class="range-number-input" type="number" min="1" max="10000" step="1" value="7" inputmode="numeric" aria-label="Amount"><select id="clearRangeUnit" class="range-select range-unit-select" aria-label="Time unit"><option value="hours">Hours</option><option value="days" selected>Days</option><option value="weeks">Weeks</option></select></div><p id="clearRangeDescription" class="range-description">Delete messages from the last 7 days.</p><div class="dialog-actions-vertical"><button id="btnConfirmClearHistory" class="btn-dialog-option btn-dialog-danger" type="button">Delete messages</button></div></main></div></div>
+  </div>
+
+  <div id="fullscreenViewerOverlay" class="media-viewer-overlay hidden" role="dialog" aria-modal="true" aria-label="Media viewer">
+    <header class="viewer-header"><button id="btnCloseFullscreen" class="btn-icon" type="button" aria-label="Close viewer">×</button><span id="fullscreenTitle" class="viewer-title">Media</span><a id="btnDownloadFullscreen" class="viewer-download" download aria-label="Download media">↓</a></header>
+    <main class="viewer-body"><img id="fullscreenImage" class="fullscreen-media hidden" alt="Shared media"><div id="videoPlayerShell" class="video-player-shell hidden"><video id="fullscreenVideo" class="web-player-video" playsinline preload="metadata"></video></div></main>
+    <div id="videoPlayerControls" class="web-video-controls hidden"><button id="btnVideoPlayPause" class="player-control-btn" type="button" aria-label="Play or pause">▶</button><span id="playerCurrentTime" class="player-time">0:00</span><input id="videoProgress" class="player-progress" type="range" min="0" max="1000" value="0" aria-label="Video position"><span id="playerDuration" class="player-time">0:00</span><button id="btnVideoMute" class="player-control-btn" type="button" aria-label="Mute video">🔊</button></div>
+  </div>
+  <script src="script.js"></script>
+  <script src="essential-features.js"></script>
+</body>
+</html>
